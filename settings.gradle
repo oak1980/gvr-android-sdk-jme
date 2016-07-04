@@ -14,6 +14,7 @@ include ':samples:sdk-controllerclient'
 include ':samples:sdk-simplepanowidget'
 include ':samples:sdk-simplevideowidget'
 include ':samples:sdk-treasurehunt'
+include ':samples:jme-startravel'
 
 // Android Studio doesn't preserve nested modules in its Project View. To create
 // a cleaner layout, we reorganize and rename the modules loaded above.
