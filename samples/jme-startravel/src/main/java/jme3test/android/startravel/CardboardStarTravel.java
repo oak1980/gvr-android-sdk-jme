@@ -54,7 +54,7 @@ public class CardboardStarTravel extends SimpleApplication {
         getRenderManager().removePostView(guiViewPort);
         guiNode.detachAllChildren();
         */
-        
+
         stars = new Node();
         rootNode.attachChild(stars);
         initStars();
@@ -70,8 +70,6 @@ public class CardboardStarTravel extends SimpleApplication {
     public void simpleUpdate(float tpf) {
         super.simpleUpdate(tpf);
 
-        //Log.i("CardboardStarTravel", "simpleUpdate("+tpf+")");
-        
         List<Spatial> starList = stars.getChildren();
         
         for(Spatial s: starList){

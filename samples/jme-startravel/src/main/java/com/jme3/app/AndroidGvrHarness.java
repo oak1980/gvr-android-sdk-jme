@@ -85,13 +85,6 @@ public class AndroidGvrHarness extends GvrActivity implements TouchListener, Dia
     protected int eglStencilBits = 0;
 
     /**
-     * Set the desired frame rate.  If frameRate > 0, the application
-     * will be capped at the desired frame rate.
-     * (default = -1, no frame rate cap)
-     */
-    protected int frameRate = -1;
-
-    /**
      * Sets the type of Audio Renderer to be used.
      * <p>
      * Android MediaPlayer / SoundPool can be used on all
@@ -143,33 +136,11 @@ public class AndroidGvrHarness extends GvrActivity implements TouchListener, Dia
      * app into the background or exit to terminate it."
      */
     protected String exitDialogMessage = "Use your home key to bring this app into the background or exit to terminate it.";
-    /**
-     * Set the screen window mode. If screenFullSize is true, then the
-     * notification bar and title bar are removed and the screen covers the
-     * entire display. If screenFullSize is false, then the notification bar
-     * remains visible if screenShowTitle is true while screenFullScreen is
-     * false, then the title bar is also displayed under the notification bar.
-     */
-    protected boolean screenFullScreen = true;
-    /**
-     * if screenShowTitle is true while screenFullScreen is false, then the
-     * title bar is also displayed under the notification bar
-     */
-    protected boolean screenShowTitle = true;
-    /**
-     * Splash Screen picture Resource ID. If a Splash Screen is desired, set
-     * splashPicID to the value of the Resource ID (i.e. R.drawable.picname). If
-     * splashPicID = 0, then no splash screen will be displayed.
-     */
-    protected int splashPicID = 0;
 
 
     protected GvrOGLESContext ctx;
     protected boolean isGLThreadPaused = true;
-    protected ImageView splashImageView = null;
-    protected FrameLayout frameLayout = null;
     final private String ESCAPE_EVENT = "TouchEscape";
-    private boolean firstDrawFrame = true;
     private boolean inConfigChange = false;
 
     public AndroidGvrHarness() {
@@ -225,7 +196,7 @@ public class AndroidGvrHarness extends GvrActivity implements TouchListener, Dia
             settings.setResolution(disp.getWidth(), disp.getHeight());
             settings.setAudioRenderer(audioRendererType);
 
-            settings.setFrameRate(frameRate);
+            settings.setFrameRate(-1);
 
             // Create application instance
             try {
@@ -308,14 +279,9 @@ public class AndroidGvrHarness extends GvrActivity implements TouchListener, Dia
         setContentView(new TextView(this));
         ctx = null;
         app = null;
-        //view = null;
         JmeAndroidGvrSystem.setView(null);
 
         super.onDestroy();
-    }
-
-    public Application getJmeApplication() {
-        return app;
     }
 
     /**
@@ -391,27 +357,6 @@ public class AndroidGvrHarness extends GvrActivity implements TouchListener, Dia
         }
     }
 
-    public void removeSplashScreen() {
-        logger.log(Level.FINE, "Splash Screen Picture Resource ID: {0}", splashPicID);
-        if (splashPicID != 0) {
-            if (frameLayout != null) {
-                if (splashImageView != null) {
-                    this.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            splashImageView.setVisibility(View.INVISIBLE);
-                            frameLayout.removeView(splashImageView);
-                        }
-                    });
-                } else {
-                    logger.log(Level.FINE, "splashImageView is null");
-                }
-            } else {
-                logger.log(Level.FINE, "frameLayout is null");
-            }
-        }
-    }
-
     /**
      * Removes the standard Android log handler due to an issue with not logging
      * entries lower than INFO level and adds a handler that produces
@@ -451,13 +396,6 @@ public class AndroidGvrHarness extends GvrActivity implements TouchListener, Dia
 
     public void update() {
         app.update();
-        // call to remove the splash screen, if present.
-        // call after app.update() to make sure no gap between
-        // splash screen going away and app display being shown.
-        if (firstDrawFrame) {
-            removeSplashScreen();
-            firstDrawFrame = false;
-        }
     }
 
     public void requestClose(boolean esc) {
