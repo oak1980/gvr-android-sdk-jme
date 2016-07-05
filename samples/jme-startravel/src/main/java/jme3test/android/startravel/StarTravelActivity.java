@@ -18,7 +18,6 @@ package jme3test.android.startravel;
 
 import android.content.Context;
 import android.opengl.GLES20;
-import android.opengl.Matrix;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.util.Log;
@@ -43,15 +42,7 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
 
   private static final String TAG = "StarTravelActivity";
 
-  private static final float CAMERA_Z = 0.01f;
-
   private static final String SOUND_FILE = "cube_sound.wav";
-
-  private float[] camera;
-  private float[] view;
-  private float[] headView;
-
-  private float[] headRotation;
 
   private Vibrator vibrator;
 
@@ -86,12 +77,6 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
 
     initializeGvrView();
 
-    camera = new float[16];
-    view = new float[16];
-
-    // Model first appears directly in front of user.
-    headRotation = new float[4];
-    headView = new float[16];
     vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
     // Initialize 3D audio engine.
@@ -105,7 +90,7 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
     gvrView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
 
     gvrView.setRenderer(this);
-    gvrView.setTransitionViewEnabled(true);
+    gvrView.setTransitionViewEnabled(true); // https://developers.google.com/vr/android/reference/com/google/vr/sdk/base/GvrView.html#public-methods_2
     gvrView.setOnCardboardBackButtonListener(
         new Runnable() {
           @Override
@@ -130,6 +115,7 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
 
   @Override
   public void onRendererShutdown() {
+    ctx.onRendererShutdown();
     Log.i(TAG, "onRendererShutdown");
   }
 
@@ -182,12 +168,16 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
   @Override
   public void onNewFrame(HeadTransform headTransform) {
 
+
+    /*
     // Build the camera matrix and apply it to the ModelView.
     Matrix.setLookAtM(camera, 0, 0.0f, 0.0f, CAMERA_Z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
     headTransform.getHeadView(headView, 0);
+    */
 
     // Update the 3d audio engine with the most recent head rotation.
+    /* FIXME: Add jME AudioRenderer
     headTransform.getQuaternion(headRotation, 0);
     gvrAudioEngine.setHeadRotation(
         headRotation[0], headRotation[1], headRotation[2], headRotation[3]);
@@ -195,7 +185,8 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
     // Regular update call to GVR audio engine.
     gvrAudioEngine.update();
 
-    checkGLError("onNewFrame");
+    checkGLError("gvrAudioEngine.update()");
+    */
 
     ctx.onNewFrame(headTransform);
   }
@@ -207,31 +198,6 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
    */
   @Override
   public void onDrawEye(Eye eye) {
-    GLES20.glEnable(GLES20.GL_DEPTH_TEST);
-    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-
-    checkGLError("colorParam");
-
-    // Apply the eye transformation to the camera.
-    Matrix.multiplyMM(view, 0, eye.getEyeView(), 0, camera, 0);
-
-    checkGLError("eyeTransform");
-
-    // Build the ModelView and ModelViewProjection matrices
-    // for calculating cube position and light.
-    /*
-    float[] perspective = eye.getPerspective(Z_NEAR, Z_FAR);
-    Matrix.multiplyMM(modelView, 0, view, 0, modelCube, 0);
-    Matrix.multiplyMM(modelViewProjection, 0, perspective, 0, modelView, 0);
-    drawCube();
-    */
-
-    // Set modelView for the floor, so we draw floor in the correct location
-    /*
-    Matrix.multiplyMM(modelView, 0, view, 0, modelFloor, 0);
-    Matrix.multiplyMM(modelViewProjection, 0, perspective, 0, modelView, 0);
-    drawFloor();
-    */
     ctx.onDrawEye(eye);
 
     checkGLError("ctx.onDrawEye(eye)");
@@ -249,20 +215,7 @@ public class StarTravelActivity extends AndroidGvrHarness implements GvrView.Ste
   public void onCardboardTrigger() {
     Log.i(TAG, "onCardboardTrigger");
 
-    if (isLookingAtObject()) {
-      //hideObject();
-    }
-
     // Always give user feedback.
     vibrator.vibrate(50);
-  }
-
-  /**
-   * Check if user is looking at object by calculating where the object is in eye-space.
-   *
-   * @return true if the user is looking at the object.
-   */
-  private boolean isLookingAtObject() {
-    return false;
   }
 }

@@ -32,16 +32,16 @@ package com.jme3.system.android;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import com.google.vr.sdk.base.Eye;
-import com.google.vr.sdk.base.GvrView;
-import com.google.vr.sdk.base.HeadTransform;
-import com.google.vr.sdk.base.Viewport;
+import com.google.vr.sdk.base.*;
 import com.jme3.app.LegacyApplication;
 import com.jme3.input.*;
 import com.jme3.input.android.AndroidInputHandler;
 import com.jme3.input.controls.SoftTextDialogInputListener;
 import com.jme3.input.dummy.DummyKeyInput;
 import com.jme3.input.dummy.DummyMouseInput;
+import com.jme3.math.Matrix4f;
+import com.jme3.math.Quaternion;
+import com.jme3.renderer.Camera;
 import com.jme3.renderer.android.AndroidGL;
 import com.jme3.renderer.opengl.GL;
 import com.jme3.renderer.opengl.GLExt;
@@ -70,9 +70,10 @@ public class GvrOGLESContext implements JmeContext, GvrView.StereoRenderer, Soft
     protected SystemListener listener;
     protected boolean autoFlush = true;
     protected AndroidInputHandler androidInput;
-    protected long minFrameDuration = 0;                   // No FPS cap
-    protected long lastUpdateTime = 0;
     private LegacyApplication app;
+
+    private static final float Z_NEAR = 1.0f;
+    private static final float Z_FAR = 1000.0f;
 
     public GvrOGLESContext() {
     }
@@ -135,13 +136,6 @@ public class GvrOGLESContext implements JmeContext, GvrView.StereoRenderer, Soft
         this.settings.copyFrom(settings);
         if (androidInput != null) {
             androidInput.loadSettings(settings);
-        }
-
-        if (settings.getFrameRate() > 0) {
-            minFrameDuration = (long)(1000d / (double)settings.getFrameRate()); // ms
-            logger.log(Level.FINE, "Setting min tpf: {0}ms", minFrameDuration);
-        } else {
-            minFrameDuration = 0;
         }
     }
 
@@ -217,10 +211,6 @@ public class GvrOGLESContext implements JmeContext, GvrView.StereoRenderer, Soft
         }
     }
 
-    public void create() {
-        create(false);
-    }
-
     @Override
     public void restart() {
     }
@@ -231,10 +221,6 @@ public class GvrOGLESContext implements JmeContext, GvrView.StereoRenderer, Soft
         if (waitFor) {
             waitFor(false);
         }
-    }
-
-    public void destroy() {
-        destroy(true);
     }
 
     protected void waitFor(boolean createdVal) {
@@ -248,83 +234,54 @@ public class GvrOGLESContext implements JmeContext, GvrView.StereoRenderer, Soft
 
     public void requestDialog(final int id, final String title, final String initialValue, final SoftTextDialogInputListener listener) {
         throw new RuntimeException("FIXME: we cannot do a dialog right now");
-        /* FIXME: This is not good, we should draw this in 3D-Space somehow
-        logger.log(Level.FINE, "requestDialog: title: {0}, initialValue: {1}",
-                new Object[]{title, initialValue});
-
-        final View view = JmeAndroidSystem.getView();
-        view.getHandler().post(new Runnable() {
-            @Override
-            public void run() {
-
-                final FrameLayout layoutTextDialogInput = new FrameLayout(view.getContext());
-                final EditText editTextDialogInput = new EditText(view.getContext());
-                editTextDialogInput.setWidth(ViewGroup.LayoutParams.FILL_PARENT);
-                editTextDialogInput.setHeight(ViewGroup.LayoutParams.FILL_PARENT);
-                editTextDialogInput.setPadding(20, 20, 20, 20);
-                editTextDialogInput.setGravity(Gravity.FILL_HORIZONTAL);
-                //editTextDialogInput.setImeOptions(EditorInfo.IME_FLAG_NO_EXTRACT_UI);
-
-                editTextDialogInput.setText(initialValue);
-
-                switch (id) {
-                    case SoftTextDialogInput.TEXT_ENTRY_DIALOG:
-
-                        editTextDialogInput.setInputType(InputType.TYPE_CLASS_TEXT);
-                        break;
-
-                    case SoftTextDialogInput.NUMERIC_ENTRY_DIALOG:
-
-                        editTextDialogInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
-                        break;
-
-                    case SoftTextDialogInput.NUMERIC_KEYPAD_DIALOG:
-
-                        editTextDialogInput.setInputType(InputType.TYPE_CLASS_PHONE);
-                        break;
-
-                    default:
-                        break;
-                }
-
-                layoutTextDialogInput.addView(editTextDialogInput);
-
-                AlertDialog dialogTextInput = new AlertDialog.Builder(view.getContext()).setTitle(title).setView(layoutTextDialogInput).setPositiveButton("OK",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int whichButton) {
-                                // User clicked OK, send COMPLETE action and text
-                                listener.onSoftText(SoftTextDialogInputListener.COMPLETE, editTextDialogInput.getText().toString());
-                            }
-                        }).setNegativeButton("Cancel",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int whichButton) {
-                                // User clicked CANCEL, send CANCEL action and text
-                                listener.onSoftText(SoftTextDialogInputListener.CANCEL, editTextDialogInput.getText().toString());
-                            }
-                        }).create();
-
-                dialogTextInput.show();
-            }
-        });
-        */
     }
 
-    float[] headRotation = new float[4];
+    private float[] headRotation = new float[4];
+    private Quaternion orientation = new Quaternion();
+
     @Override
     public void onNewFrame(HeadTransform headTransform) {
         // Build the camera matrix and apply it to the ModelView.
-        if(app.getCamera() != null)
-        {
+        if(app.getCamera() != null) {
+            Camera cam = app.getCamera();
+
             headTransform.getQuaternion(headRotation, 0);
-            app.getCamera().getRotation().set(headRotation[3], headRotation[2], headRotation[1], headRotation[0]);
-            app.getCamera().onFrameChange();
+            orientation.set(headRotation[3], headRotation[2], headRotation[1], headRotation[0]);
+            cam.setRotation(orientation);
         }
     }
 
+    float[] perspective = new float[16];
+    private Matrix4f projMatrix = new Matrix4f();
     // SystemListener:update
     @Override
     public void onDrawEye(Eye eye) {
         // FIXME: Move the updating part into onNewFrame(...)
+
+        if(app.getCamera() != null) {
+            logger.fine("Eye: "+(eye.getType() == Eye.Type.LEFT ? "Left" : (eye.getType() == Eye.Type.RIGHT ? "Right" : "MONOCULAR")));
+
+            Camera cam = app.getCamera();
+            FieldOfView fov = eye.getFov();
+
+            // Fix a Frustum (they represent it as angles, so we have to calculate a little)
+            {
+                float l = (float) (-Math.tan(Math.toRadians((double) fov.getLeft()))) * Z_NEAR;
+                float r = (float) Math.tan(Math.toRadians((double) fov.getRight())) * Z_NEAR;
+                float b = (float) (-Math.tan(Math.toRadians((double) fov.getBottom()))) * Z_NEAR;
+                float t = (float) Math.tan(Math.toRadians((double) fov.getTop())) * Z_NEAR;
+                cam.setFrustum(Z_NEAR, Z_FAR, l, r, t, b);
+            }
+
+            // Setup perspective
+            {
+                fov.toPerspectiveMatrix(Z_NEAR, Z_FAR, perspective, 0);
+                projMatrix.set(perspective);
+                cam.setProjectionMatrix(projMatrix);
+            }
+
+        }
+
 
         if (needClose.get()) {
             deinitInThread();
@@ -335,6 +292,10 @@ public class GvrOGLESContext implements JmeContext, GvrView.StereoRenderer, Soft
             if (created.get()) {
                 logger.fine("GL Surface is setup, initializing application");
                 listener.initialize();
+
+                // TODO: Figure out if it makes more sense to have left/right camera (we could clone them here)
+                //Camera cam = app.getCamera();
+
                 renderable.set(true);
             }
         } else {
@@ -346,23 +307,6 @@ public class GvrOGLESContext implements JmeContext, GvrView.StereoRenderer, Soft
             if (autoFlush) {
                 renderer.postFrame();
             }
-
-            /* TODO: Check if we really want this
-            long updateDelta = System.currentTimeMillis() - lastUpdateTime;
-
-            // Enforce a FPS cap
-            if (updateDelta < minFrameDuration) {
-//                    logger.log(Level.INFO, "lastUpdateTime: {0}, updateDelta: {1}, minTimePerFrame: {2}",
-//                            new Object[]{lastUpdateTime, updateDelta, minTimePerFrame});
-                try {
-                    Thread.sleep(minFrameDuration - updateDelta);
-                } catch (InterruptedException e) {
-                }
-            }
-
-            lastUpdateTime = System.currentTimeMillis();
-            */
-
         }
     }
 
